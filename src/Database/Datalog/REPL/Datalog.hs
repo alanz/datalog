@@ -12,7 +12,7 @@ module Database.Datalog.REPL.Datalog
   ) where
 
 
-import Data.Hashable hiding ( combine )
+import Data.Hashable
 import Control.Monad ( liftM )
 import Control.Monad.Trans.State
 import Data.Map (Map)
@@ -39,10 +39,10 @@ instance Hashable ValueInfo where
 data DB = DB { fullyExtended :: Bool, datalogDb :: Datalog }
 
 
-combine :: Datalog -> Datalog -> Datalog
--- combine a b = g (mappend a b) where
+combineDbs :: Datalog -> Datalog -> Datalog
+-- combineDbs a b = g (mappend a b) where
 --  g (x, y) = (L.nub x, L.nub y)
-combine (DL fa ra qra) (DL fb rb qrb) = (DL f r qr)
+combineDbs (DL fa ra qra) (DL fb rb qrb) = (DL f r qr)
   where
     f = Map.unionWith combineOp fa fb
     r = Map.unionWith combineOp ra rb
@@ -55,7 +55,7 @@ derive :: State DB DB
 derive = do
   DB b adb <- get
   return $ if b then DB b adb
-                -- else DB True (combine db ((uncurry seminaive db, [])))
+                -- else DB True (combineDbs db ((uncurry seminaive db, [])))
                 else DB True adb
 
 instance Backend (State DB) where
@@ -65,7 +65,7 @@ instance Backend (State DB) where
    queries = liftM (                     dlQueries . datalogDb) derive
 
    memoAll = derive >>= put
-   declare adb = modify (\(DB _ db0) -> DB False (combine db0 adb))
+   declare adb = modify (\(DB _ db0) -> DB False (combineDbs db0 adb))
 
    -- query :: Atom Term -> f (Maybe Subst)
    -- query :: Atom Term -> f ([Fact]
