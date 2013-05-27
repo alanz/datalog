@@ -30,6 +30,7 @@ import Text.Parsec.Combinator
 import Text.Parsec.Prim
 import Text.Parsec.Error
 import Text.Parsec.Char
+import Text.ParserCombinators.Parsec.Token (natural)
 
 import Database.Datalog.REPL.Backend
 
@@ -39,7 +40,7 @@ instance (Monad m) => Stream Text m Char where
     uncons = return . T.uncons
 
 data Env = Env
-    { envConMap :: Map String Con
+    { envConMap :: Map Literal Con
     , envNextFree :: !Id
     } deriving (Show)
 
@@ -53,7 +54,7 @@ fresh = do
     putState $ env { envNextFree = free + 1 }
     return free
 
-mkCon :: String -> P Con
+mkCon :: Literal -> P Con
 mkCon k = do
     m <- envConMap <$> getState
     case M.lookup k m of
@@ -75,11 +76,20 @@ var = do
     ls <- many letter
     return $ V (l:ls)
 
-con :: P Con
-con = do
+conS :: P Con
+conS = do
     u <- lower <?> "constructor"
     us <- many letter
-    mkCon (u:us)
+    mkCon (S $ u:us)
+
+conI :: P Con
+conI = do
+    i <- number
+    mkCon (I i)
+
+con :: P Con
+con = conS
+  <|> conI
 
 neg :: P ()
 neg = (string "\\+" <|> string "~") >> return ()
@@ -88,6 +98,9 @@ term :: P Term
 term =  Var <$> var
     <|> Con <$> con
 
+
+number :: P Integer
+number = do { ds <- many1 digit; return (read ds) } <?> "number"
 
 turnstile :: P ()
 turnstile = string ":-" >> return ()

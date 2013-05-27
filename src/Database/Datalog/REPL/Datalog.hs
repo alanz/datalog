@@ -28,11 +28,13 @@ import qualified Database.Datalog as D
 -- ---------------------------------------------------------------------
 
 -- |Base types that can be stored in the database
-data ValueInfo = VV !Text -- ^Value
+data ValueInfo = VV !Text    -- ^String Value
+               | VI !Integer -- ^Integer Value
                    deriving (Eq,Ord,Show)
 
 instance Hashable ValueInfo where
-  hashWithSalt s (VV r)  = s `hashWithSalt` r `hashWithSalt` (3 :: Int)
+  hashWithSalt s (VV r)  = s `hashWithSalt` r `hashWithSalt` (1 :: Int)
+  hashWithSalt s (VI r)  = s `hashWithSalt` r `hashWithSalt` (2 :: Int)
 
 -- ---------------------------------------------------------------------
 
@@ -96,7 +98,9 @@ executeQuery q (DL factMap ruleMap _qr) = do
 
   let res = map oneFact r
       oneFact bs = Atom (atomPred q) vars
-        where vars = map (\(VV v) -> C (-1) (T.unpack v)) bs
+        where vars = map toVar bs
+              toVar (VV v) = C (-1) (S $ T.unpack v)
+              toVar (VI v) = C (-1) (I v) 
 
   return res
 
@@ -154,7 +158,10 @@ makeRelation ((name,arity),relFacts) = do
   mapM_ (D.assertFact rel) (map toFact relFacts)
 
 toFact :: Fact -> [ValueInfo]
-toFact f = map (\p -> VV $ T.pack $ conName p) (atomArgs f)
+toFact f = map toValueInfo (atomArgs f)
+  where
+    toValueInfo c@(C _ (S _)) = VV $ T.pack $ conName c
+    toValueInfo   (C _ (I i)) = VI i
 
 -- ---------------------------------------------------------------------
 
@@ -261,6 +268,22 @@ td = do
 tq :: IO ()
 tq = do
   let (Right db) = run "a(b,c). a(X,Y) :- a(X,Y)."
+  let ddb@(DL factMap ruleMap _) = toDatalog db
+  let pq = tp queryP "a(b,X)."
+
+  let edb = mkDb factMap
+  -- rels <- mapM makeQueryRelation $ Map.toList ruleMap
+
+  r <- executeQuery pq ddb
+  putStrLn $ "(edb)=" ++ (show (edb))
+  putStrLn $ "(ddb)=" ++ (show (ddb))
+  putStrLn $ "(pq)=" ++ (show (pq))
+  putStrLn $ "(r)=" ++ (show (r))
+  return ()
+
+tqn :: IO ()
+tqn = do
+  let (Right db) = run "a(b,0). a(X,Y) :- a(X,Y)."
   let ddb@(DL factMap ruleMap _) = toDatalog db
   let pq = tp queryP "a(b,X)."
 

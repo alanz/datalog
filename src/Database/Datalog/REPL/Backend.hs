@@ -5,6 +5,7 @@ module Database.Datalog.REPL.Backend
   , Rule(..)
   , QueryResult
   , Con(..)
+  , Literal(..)
   , Var(..)
   , Term(..)
   , Atom(..)
@@ -52,9 +53,14 @@ newtype Var = V String deriving (Show,Eq,Ord)  -- x
 varName :: Var -> String
 varName (V s) = s
 
-data Con = C Id String deriving (Show) -- Foo
+data Literal = S String
+             | I Integer
+             deriving (Show,Eq,Ord)
+
+data Con = C Id Literal deriving (Show) -- Foo
 conName :: Con -> String
-conName (C _ s) = s
+conName (C _ (S s)) = s
+conName (C _ (I i)) = show i
 conId :: Con -> Id
 conId (C x _) = x
 
@@ -89,7 +95,7 @@ atomPred (Atom x _) = x
 atomArgs :: Atom t -> [t]
 atomArgs (Atom _ t) = t
 atomName :: Atom t -> String
-atomName (Atom (C _ s) _) = s
+atomName (Atom c _) = conName c
 atomId :: Atom t -> Int
 atomId (Atom (C aid _) _) = aid
 
